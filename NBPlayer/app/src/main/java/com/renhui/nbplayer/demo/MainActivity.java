@@ -54,7 +54,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
-        surfaceView.releasePlaer();
+        surfaceView.releasePlayer();
     }
 }
 

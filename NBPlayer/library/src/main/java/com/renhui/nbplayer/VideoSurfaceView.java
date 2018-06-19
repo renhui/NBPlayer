@@ -93,7 +93,7 @@ public class VideoSurfaceView extends SurfaceView implements SurfaceHolder.Callb
         mPlayer.pause();
     }
 
-    public void releasePlaer() {
+    public void releasePlayer() {
         mPlayer.stop();
     }
 
