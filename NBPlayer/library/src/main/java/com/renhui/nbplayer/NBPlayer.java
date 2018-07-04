@@ -164,10 +164,8 @@ public class NBPlayer extends Player {
                         grabbedImage = mOpencvConverter.convert(grabframe);
                         Frame rotatedFrame = mOpencvConverter.convert(grabbedImage);
                         draw(rotatedFrame);
-
                     }
                 }
-
                 mFrameGrabber.stop();
             } catch (FrameGrabber.Exception e) {
                 e.printStackTrace();
