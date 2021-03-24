@@ -3,89 +3,68 @@ package com.renhui.nbplayer;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
-import android.content.res.Configuration;
 import android.os.Build;
 import android.util.AttributeSet;
-import android.util.Log;
-import android.view.Display;
+import android.util.DisplayMetrics;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.widget.RelativeLayout;
+
+import com.renhui.nbplayer.utils.LoggerUtil;
 
 /**
  * 视频播放控件
  * Created by renhui on 2017/8/6.
  */
-public class VideoSurfaceView extends SurfaceView implements SurfaceHolder.Callback {
-
-    private static final String TAG = "VideoSurfaceView";
+public class VideoSurfaceView extends SurfaceView implements SurfaceHolder.Callback, OnVideoSizeListener {
 
     private NBPlayer mPlayer;
-    private OnPreparedListener onPreparedListener;
 
     private Context mContext;
 
     public VideoSurfaceView(Context context) {
         super(context);
         mContext = context;
-        init();
+        initSurfaceCallBack();
     }
 
     public VideoSurfaceView(Context context, AttributeSet attrs) {
         super(context, attrs);
         mContext = context;
-        init();
+        initSurfaceCallBack();
     }
 
     public VideoSurfaceView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         mContext = context;
-        init();
+        initSurfaceCallBack();
     }
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
     public VideoSurfaceView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
-        init();
+        initSurfaceCallBack();
     }
 
-    private void init() {
+    private void initSurfaceCallBack() {
         getHolder().addCallback(this);
     }
 
     public void initPlayer(String path) {
-        mPlayer = NBPlayer.create(getHolder(), path);
+        mPlayer = NBPlayer.create(getHolder());
+        mPlayer.setVideoSizeListener(this);
+        mPlayer.setDataSource(path);
         mPlayer.setLooping(true);
-    }
-
-    public void play() {
-        mPlayer.play();
-    }
-
-
-    private void initLayout(int width, int height) {
-        Display display = ((Activity) getContext()).getWindowManager().getDefaultDisplay();
-        float scale = width / (float) height;
-        getLayoutParams().height = (int) (display.getWidth() / scale);
-        requestLayout();
-    }
-
-    @Override
-    protected void onConfigurationChanged(Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-        initLayout(mPlayer.getWidth(), mPlayer.getHeight());
     }
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        initLayout(mPlayer.getWidth(), mPlayer.getHeight());
-        play();
-        if (onPreparedListener != null)
-            onPreparedListener.onPrepared();
+        mPlayer.play();
     }
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        Log.v(TAG, "surfaceChanged...");
+
     }
 
     @Override
@@ -94,14 +73,54 @@ public class VideoSurfaceView extends SurfaceView implements SurfaceHolder.Callb
     }
 
     public void releasePlayer() {
-        mPlayer.stop();
+        mPlayer.release();
     }
 
-    public void setOnPreparedListener(OnPreparedListener onPreparedListener) {
-        this.onPreparedListener = onPreparedListener;
+    @Override
+    public void videoSize(int videoWidth, int videoHeight) {
+        LoggerUtil.w("视频宽："+ videoWidth + ", 视频高：" + videoHeight);
+        setLayoutParams(getVideoSizeParams(videoWidth, videoHeight));
     }
 
-    public interface OnPreparedListener {
-        void onPrepared();
+    private RelativeLayout.LayoutParams getVideoSizeParams(int videoWidth, int videoHeight) {
+        int width = getScreenWidth(mContext);
+        int height = getScreenHeight(mContext);
+
+        if (videoWidth == 0) {
+            videoWidth = 600;
+        }
+        if (videoHeight == 0) {
+            videoHeight = 400;
+        }
+        if (videoWidth > width || videoHeight > height) {
+            float wRatio = (float) videoWidth / (float) width;
+            float hRatio = (float) videoHeight / (float) height;
+            float ratio = Math.max(wRatio, hRatio);
+            width = (int) Math.ceil((float)videoWidth / ratio);
+            height = (int) Math.ceil((float)videoHeight / ratio);
+        } else {
+            float wRatio = (float) width / (float) videoWidth;
+            float hRatio = (float) height / (float) videoHeight;
+            float ratio = Math.min(wRatio, hRatio);
+            width = (int) Math.ceil(((float)videoWidth * ratio));
+            height = (int) Math.ceil(((float)videoHeight * ratio));
+        }
+        LoggerUtil.w("调整宽："+ width + ", 调整高：" + height);
+        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(width, height);
+        params.addRule(RelativeLayout.CENTER_IN_PARENT);
+        return params;
     }
+
+    public static int getScreenWidth(Context context) {
+        DisplayMetrics localDisplayMetrics = new DisplayMetrics();
+        ((Activity) context).getWindowManager().getDefaultDisplay().getMetrics(localDisplayMetrics);
+        return localDisplayMetrics.widthPixels;
+    }
+
+    public static int getScreenHeight(Context context) {
+        DisplayMetrics localDisplayMetrics = new DisplayMetrics();
+        ((Activity) context).getWindowManager().getDefaultDisplay().getMetrics(localDisplayMetrics);
+        return localDisplayMetrics.heightPixels;
+    }
+
 }

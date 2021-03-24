@@ -4,6 +4,8 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Rect;
+import android.os.Build;
+import android.support.annotation.RequiresApi;
 import android.util.Log;
 import android.view.SurfaceHolder;
 
@@ -22,12 +24,6 @@ import static org.bytedeco.javacpp.avutil.AV_PIX_FMT_RGBA;
  */
 public class NBPlayer extends Player {
 
-    private final static String TAG = "FFmpegPlayer"; // 日志TAG
-    private final Object object = new Object(); // 同步锁对象
-
-    private int video_width;
-    private int video_height;
-
     private SurfaceHolder mHolder; // 视频绘制容器
     private FFmpegFrameGrabber mFrameGrabber;//解码器
     private OpenCVFrameConverter.ToIplImage mOpencvConverter; // 帧转换器（by OpenCV）
@@ -39,15 +35,8 @@ public class NBPlayer extends Player {
     //状态相关
     private boolean hasInit = false;
 
-    //设置相关
-    private String sourcePath;
-
     public static NBPlayer create(SurfaceHolder mHolder) {
         return new NBPlayer(mHolder);
-    }
-
-    public static NBPlayer create(SurfaceHolder mHolder, String path) {
-        return new NBPlayer(mHolder, path);
     }
 
     public NBPlayer(SurfaceHolder mHolder) {
@@ -56,14 +45,12 @@ public class NBPlayer extends Player {
 
     public NBPlayer(SurfaceHolder mHolder, String path) {
         this.mHolder = mHolder;
-        setDataSource(path);
     }
 
     public void setDataSource(String path) {
         // 清理之前的界面
         clearView();
         // 初始化相关参数
-        this.sourcePath = path;
         this.curFrameNumber = 0;
         this.hasInit = false;
 
@@ -79,17 +66,9 @@ public class NBPlayer extends Player {
             }
             mFrameGrabber = FFmpegFrameGrabber.createDefault(path);
             mFrameGrabber.setPixelFormat(AV_PIX_FMT_RGBA);
-
-            // 此处可以设置nobuffer -- 降低延迟 -- 但是可能会出现闪屏闪音的情况
-            // mFrameGrabber.setOption("fflags", "nobuffer");
-
             mFrameGrabber.start();
             this.rate = Math.round(1000d / mFrameGrabber.getFrameRate());
-            video_width = mFrameGrabber.getImageWidth();
-            video_height = mFrameGrabber.getImageHeight();
-            Log.e("111", "mFrameGrabber.getFrameRate() = " + mFrameGrabber.getFrameRate());
-            Log.e("111", String.format("width=%d, height=%d, delay=%d, frame lenght=%d", mFrameGrabber.getImageWidth(), mFrameGrabber.getImageHeight(), rate, mFrameGrabber.getLengthInFrames()));
-            Log.e("111", "AudioChannels=" + mFrameGrabber.getAudioChannels() + ", AudioBitrate=" + mFrameGrabber.getSampleRate());
+            videoSizeListener.videoSize(mFrameGrabber.getImageWidth(), mFrameGrabber.getImageHeight());
         } catch (FrameGrabber.Exception e) {
             e.printStackTrace();
         }
@@ -100,20 +79,11 @@ public class NBPlayer extends Player {
         if (isAutoPlay()) play();
     }
 
-    private int frameType(Frame frame) {
-        if (frame == null) return -1;
-        if (frame.image != null) return 0;
-        else if (frame.samples != null) return 1;
-        else return -1;
-    }
-
     private void clearView() {
-        synchronized (object) {
-            Canvas canvas = mHolder.lockCanvas();
-            if (canvas == null) return;
-            canvas.drawColor(Color.BLACK);
-            mHolder.unlockCanvasAndPost(canvas);
-        }
+        Canvas canvas = mHolder.lockCanvas();
+        if (canvas == null) return;
+        canvas.drawColor(Color.BLACK);
+        mHolder.unlockCanvasAndPost(canvas);
     }
 
     private boolean draw(Frame frame) {
@@ -124,12 +94,10 @@ public class NBPlayer extends Player {
         if (bmp == null) {
             return false;
         }
-        synchronized (object) {
-            Canvas canvas = mHolder.lockCanvas();
-            if (canvas == null) return true;
-            canvas.drawBitmap(bmp, null, new Rect(0, 0, canvas.getWidth(), frame.imageHeight * canvas.getWidth() / frame.imageWidth), null);
-            mHolder.unlockCanvasAndPost(canvas);
-        }
+        Canvas canvas = mHolder.lockCanvas();
+        if (canvas == null) return true;
+        canvas.drawBitmap(bmp, null, new Rect(0, 0, canvas.getWidth(), frame.imageHeight * canvas.getWidth() / frame.imageWidth), null);
+        mHolder.unlockCanvasAndPost(canvas);
         return true;
     }
 
@@ -140,31 +108,24 @@ public class NBPlayer extends Player {
             mAudioDevice = new AudioDevice(sampleRate, channels);
         }
 
+        @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
         @Override
         public void run() {
             super.run();
             try {
-
-                synchronized (object) {
-                    Frame grabframe = mFrameGrabber.grab();
-                    opencv_core.IplImage grabbedImage = null;
-                    if (grabframe != null) {
-                        mOpencvConverter.convert(grabframe);
-                        Log.e(TAG, "has fetched first frame");
-                    } else {
-                        Log.e(TAG, "not fetched first frame");
+                Frame grabframe = mFrameGrabber.grab();
+                opencv_core.IplImage grabbedImage = null;
+                if (grabframe != null) {
+                    mOpencvConverter.convert(grabframe);
+                }
+                while ((grabframe = mFrameGrabber.grab()) != null) {
+                    // 解析音频并播放
+                    if (grabframe.samples != null) {
+                        mAudioDevice.writeSamples(grabframe.samples);
                     }
-                    while ((grabframe = mFrameGrabber.grab()) != null) {
-
-                        // 解析音频并播放
-                        if (grabframe.samples != null) {
-                            mAudioDevice.writeSamples(grabframe.samples);
-                        }
-
-                        grabbedImage = mOpencvConverter.convert(grabframe);
-                        Frame rotatedFrame = mOpencvConverter.convert(grabbedImage);
-                        draw(rotatedFrame);
-                    }
+                    grabbedImage = mOpencvConverter.convert(grabframe);
+                    Frame rotatedFrame = mOpencvConverter.convert(grabbedImage);
+                    draw(rotatedFrame);
                 }
                 mFrameGrabber.stop();
             } catch (FrameGrabber.Exception e) {
@@ -201,30 +162,22 @@ public class NBPlayer extends Player {
     }
 
     @Override
-    public void stop() {
+    public void release() {
         if (!hasInit) return;
-        super.stop();
-        try {
-            synchronized (mFrameGrabber) {
-                if (mFrameGrabber != null) {
-                    mFrameGrabber.stop();
-                    mFrameGrabber.release();
-                    mFrameGrabber = null;
-                }
+        super.release();
+        if (mFrameGrabber != null) {
+            try {
+                mFrameGrabber.stop();
+                mFrameGrabber.release();
+                mFrameGrabber = null;
+            } catch (FrameGrabber.Exception e) {
+                e.printStackTrace();
             }
-        } catch (FrameGrabber.Exception e) {
-            e.printStackTrace();
         }
-    }
-
-    @Override
-    public int getWidth() {
-        return video_width;
-    }
-
-    @Override
-    public int getHeight() {
-        return video_height;
+        if (mAudioDevice != null) {
+            mAudioDevice.release();
+            mAudioDevice = null;
+        }
     }
 
     @Override
@@ -247,7 +200,9 @@ public class NBPlayer extends Player {
         this.autoPlay = autoPlay;
     }
 
-    public String getSourcePath() {
-        return sourcePath;
+    private OnVideoSizeListener videoSizeListener;
+
+    public void setVideoSizeListener(OnVideoSizeListener videoSizeListener) {
+        this.videoSizeListener = videoSizeListener;
     }
 }

@@ -12,7 +12,6 @@ public abstract class Player {
     protected boolean looping;
     protected boolean autoPlay = true;
 
-
     public void seek(int number) {
         this.curFrameNumber = number;
     }
@@ -25,13 +24,9 @@ public abstract class Player {
         this.play = false;
     }
 
-    public void stop() {
+    public void release() {
         this.play = false;
     }
-
-    public abstract int getWidth();
-
-    public abstract int getHeight();
 
     public boolean isLooping() {
         return looping;

@@ -2,9 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/NBPlayer.iml" filepath="$PROJECT_DIR$/NBPlayer.iml" />
-      <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
-      <module fileurl="file://$PROJECT_DIR$/library/library.iml" filepath="$PROJECT_DIR$/library/library.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/NBPlayer.iml" filepath="$PROJECT_DIR$/.idea/modules/NBPlayer.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/NBPlayer.app.iml" filepath="$PROJECT_DIR$/.idea/modules/app/NBPlayer.app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/library/NBPlayer.library.iml" filepath="$PROJECT_DIR$/.idea/modules/library/NBPlayer.library.iml" />
     </modules>
   </component>
 </project>

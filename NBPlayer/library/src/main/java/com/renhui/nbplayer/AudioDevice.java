@@ -5,10 +5,14 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.os.Build;
+import android.support.annotation.RequiresApi;
 import android.util.Log;
+
+import com.renhui.nbplayer.utils.LoggerUtil;
 
 import java.nio.Buffer;
 import java.nio.FloatBuffer;
+import java.util.logging.Logger;
 
 /**
  * 音频设备
@@ -17,53 +21,30 @@ import java.nio.FloatBuffer;
 public class AudioDevice {
 
     private int streamType = AudioManager.STREAM_MUSIC; // 流类型
-    private int sampleRateInHz = 44100; // 设置音频数据的采样率
-    private int channelConfig = AudioFormat.CHANNEL_OUT_STEREO; //CHANNEL_OUT_MONO类型是单声道
-    private int audioFormat = AudioFormat.ENCODING_PCM_16BIT; //采样精度
-    private int minBufSize = 0;
+    private int sampleRateInHz;
+    private int channelConfig;
+    private int audioFormat;
+    private int minBufSize;
     private int mode = AudioTrack.MODE_STREAM; // 设置模式类型，在这里设置为流类型
     private AudioTrack audioTrack;
     private short[] buffer = new short[1024];
     private float[] floatBuffer = new float[1024];
 
-    public AudioDevice(int rate, int channels) {
-        sampleRateInHz = rate;
+    public AudioDevice(int sampleRate, int channels) {
+        LoggerUtil.w("sampleRate = " + sampleRate + ", channels = " + channels);
+        sampleRateInHz = sampleRate * (channels == 1 ? 2 : 1);
         channelConfig = channels == 1 ? AudioFormat.CHANNEL_OUT_MONO : AudioFormat.CHANNEL_OUT_STEREO;
         audioFormat = Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP ? AudioFormat.ENCODING_PCM_16BIT : AudioFormat.ENCODING_PCM_FLOAT;
         minBufSize = AudioTrack.getMinBufferSize(sampleRateInHz, channelConfig, audioFormat);
         audioTrack = new AudioTrack(streamType, sampleRateInHz, channelConfig, audioFormat, minBufSize, mode);
         audioTrack.play();
-        Log.v("AudioDevice", toString());
+        LoggerUtil.w("MinBufSize = " + minBufSize);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     public void writeSamples(Buffer[] buffers) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-            fillByteBuffer(buffers);
-            audioTrack.write(buffer, 0, buffer.length);
-        } else {
-            fillFloatBuffer(buffers);
-            audioTrack.write(floatBuffer, 0, floatBuffer.length, AudioTrack.WRITE_BLOCKING);
-        }
-    }
-
-    private void fillByteBuffer(Buffer[] buffers) {
-        if (buffer.length == 1) {
-            FloatBuffer b = (FloatBuffer) buffers[0];
-            b.rewind();
-            if (buffer.length < b.capacity())
-                buffer = new short[b.capacity()];
-            for (int i = 0; i < b.capacity(); i++)
-                buffer[i] = (byte) (b.get(i) * Short.MAX_VALUE);
-        } else {
-            FloatBuffer b1 = (FloatBuffer) buffers[0];
-            FloatBuffer b2 = (FloatBuffer) buffers[0];
-            if (buffer.length < b1.capacity() + b2.capacity())
-                buffer = new short[b1.capacity() + b2.capacity()];
-            for (int i = 0; i < b1.capacity(); i++) {
-                buffer[2 * i] = (short) (b1.get(i) * Short.MAX_VALUE);
-                buffer[2 * i + 1] = (short) (b2.get(i) * Short.MAX_VALUE);
-            }
-        }
+        fillFloatBuffer(buffers);
+        audioTrack.write(floatBuffer, 0, floatBuffer.length, AudioTrack.WRITE_BLOCKING);
     }
 
     private void fillFloatBuffer(Buffer[] buffers) {

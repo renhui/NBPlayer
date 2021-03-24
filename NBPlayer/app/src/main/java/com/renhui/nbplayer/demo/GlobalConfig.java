@@ -5,6 +5,6 @@ package com.renhui.nbplayer.demo;
  */
 class GlobalConfig {
 
-    public static final String INPUT_VIDEO_PATH = "rtmp://live.hkstv.hk.lxdns.com/live/hks";  // 香港卫视
+    public static final String INPUT_VIDEO_PATH = "rtmp://58.200.131.2:1935/livetv/hbtv";
 
 }
